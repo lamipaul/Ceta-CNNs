@@ -1,10 +1,29 @@
-from torch import nn
+
 import torch
 import numpy as np
-from torch import tensor, nn, exp, log, ones, stack
 
 
-class PCENLayer(nn.Module):
+class Log1p(torch.nn.Module):
+    """
+    Applies log(1 + 10**a * x), with scale fixed or trainable.
+    """
+    def __init__(self, a=0, trainable=False):
+        super(Log1p, self).__init__()
+        if trainable:
+            a = torch.nn.Parameter(torch.tensor(a, dtype=torch.get_default_dtype()))
+        self.a = a
+        self.trainable = trainable
+
+    def forward(self, x):
+        if self.trainable or self.a != 0:
+            x = torch.log1p(10 ** self.a * x)
+        return x
+
+    def extra_repr(self):
+        return 'trainable={}'.format(repr(self.trainable))
+
+
+class PCENLayer(torch.nn.Module):
     def __init__(self, num_bands,
                  s=0.025,
                  alpha=.8,
@@ -13,11 +32,11 @@ class PCENLayer(nn.Module):
                  eps=1e-6,
                  init_smoother_from_data=True):
         super(PCENLayer, self).__init__()
-        self.log_s = nn.Parameter( log(ones((1,1,num_bands)) * s))
-        self.log_alpha = nn.Parameter( log(ones((1,1,num_bands,1)) * alpha))
-        self.log_delta = nn.Parameter( log(ones((1,1,num_bands,1)) * delta))
-        self.log_r = nn.Parameter( log(ones((1,1,num_bands,1)) * r))
-        self.eps = tensor(eps)
+        self.log_s = torch.nn.Parameter( torch.log(torch.ones((1,1,num_bands)) * s))
+        self.log_alpha = torch.nn.Parameter( torch.log(torch.ones((1,1,num_bands,1)) * alpha))
+        self.log_delta = torch.nn.Parameter( torch.log(torch.ones((1,1,num_bands,1)) * delta))
+        self.log_r = torch.nn.Parameter( torch.log(torch.ones((1,1,num_bands,1)) * r))
+        self.eps = torch.tensor(eps)
         self.init_smoother_from_data = init_smoother_from_data
 
     def forward(self, input): # expected input (batch, channel, freqs, time)
@@ -27,11 +46,11 @@ class PCENLayer(nn.Module):
 
         filtered = [init]
         for iframe in range(1, input.shape[-1]):
-            filtered.append( (1-exp(self.log_s)) * filtered[iframe-1] + exp(self.log_s) * input[:,:,:,iframe] )
-        filtered = stack(filtered).permute(1,2,3,0)
+            filtered.append( (1-torch.exp(self.log_s)) * filtered[iframe-1] + torch.exp(self.log_s) * input[:,:,:,iframe] )
+        filtered = torch.stack(filtered).permute(1,2,3,0)
 
         # stable reformulation due to Vincent Lostanlen; original formula was:
-        alpha, delta, r = exp(self.log_alpha), exp(self.log_delta), exp(self.log_r)
+        alpha, delta, r = torch.exp(self.log_alpha), torch.exp(self.log_delta), torch.exp(self.log_r)
         return (input / (self.eps + filtered)**alpha + delta)**r - delta**r
 #        filtered = exp(-alpha * (log(self.eps) + log(1 + filtered / self.eps)))
 #        return (input * filtered + delta)**r - delta**r
@@ -80,7 +99,7 @@ def create_mel_filterbank(sample_rate, frame_len, num_bands, min_freq, max_freq,
     return filterbank
 
 
-class MelFilter(nn.Module):
+class MelFilter(torch.nn.Module):
     def __init__(self, sample_rate, winsize, num_bands, min_freq, max_freq):
         super(MelFilter, self).__init__()
         melbank = create_mel_filterbank(sample_rate, winsize, num_bands,
@@ -112,7 +131,8 @@ class MelFilter(nn.Module):
         self._buffers = buffers
         return result
 
-class STFT(nn.Module):
+
+class STFT(torch.nn.Module):
     def __init__(self, winsize, hopsize, complex=False):
         super(STFT, self).__init__()
         self.winsize = winsize
@@ -154,77 +174,3 @@ class STFT(nn.Module):
         # restore original batchsize and channels in case we mashed them
         x = x.reshape((batchsize, channels, -1) + x.shape[2:]) #if channels > 1 else x.reshape((batchsize, -1) + x.shape[2:])
         return x
-
-
-HB_model = nn.Sequential(nn.Sequential(
-    STFT(512, 64),
-    MelFilter(11025, 512, 64, 100, 3000),
-    PCENLayer(64),
-  ),
-  nn.Sequential(
-    nn.Conv2d(1, 32, 3, bias=False),
-    nn.BatchNorm2d(32),
-    nn.LeakyReLU(0.01),
-    nn.Conv2d(32, 32, 3,bias=False),
-    nn.BatchNorm2d(32),
-    nn.MaxPool2d(3),
-    nn.LeakyReLU(0.01),
-    nn.Conv2d(32, 32, 3, bias=False),
-    nn.BatchNorm2d(32),
-    nn.LeakyReLU(0.01),
-    nn.Conv2d(32, 32, 3, bias=False),
-    nn.BatchNorm2d(32),
-    nn.LeakyReLU(0.01),
-    nn.Conv2d(32, 64, (16, 3), bias=False),
-    nn.BatchNorm2d(64),
-    nn.MaxPool2d((1,3)),
-    nn.LeakyReLU(0.01),
-    nn.Dropout(p=.5),
-    nn.Conv2d(64, 256, (1, 9), bias=False),  # for 80 bands
-    nn.BatchNorm2d(256),
-    nn.LeakyReLU(0.01),
-    nn.Dropout(p=.5),
-    nn.Conv2d(256, 64, 1, bias=False),
-    nn.BatchNorm2d(64),
-    nn.LeakyReLU(0.01),
-    nn.Dropout(p=.5),
-    nn.Conv2d(64, 1, 1, bias=False)
-  )
- )
-
-delphi_model = nn.Sequential(nn.Sequential(
-    STFT(4096, 1024),
-    MelFilter(96000, 4096, 128, 3000, 30000),
-    PCENLayer(128),
- ),
- nn.Sequential(
-  nn.Conv2d(1, 32, 3, bias=False),
-  nn.BatchNorm2d(32),
-  nn.LeakyReLU(0.01),
-  nn.Conv2d(32, 32, 3,bias=False),
-  nn.BatchNorm2d(32),
-  nn.MaxPool2d(3),
-  nn.LeakyReLU(0.01),
-  nn.Conv2d(32, 32, 3, bias=False),
-  nn.BatchNorm2d(32),
-  nn.LeakyReLU(0.01),
-  nn.Conv2d(32, 32, 3, bias=False),
-  nn.BatchNorm2d(32),
-  nn.LeakyReLU(0.01),
-  nn.Conv2d(32, 64, (19, 3), bias=False),
-  nn.BatchNorm2d(64),
-  nn.MaxPool2d(3),
-  nn.LeakyReLU(0.01),
-  nn.Dropout(p=.5),
-  nn.Conv2d(64, 256, (1, 9), bias=False),  # for 80 bands
-  nn.BatchNorm2d(256),
-  nn.LeakyReLU(0.01),
-  nn.Dropout(p=.5),
-  nn.Conv2d(256, 64, 1, bias=False),
-  nn.BatchNorm2d(64),
-  nn.LeakyReLU(0.01),
-  nn.Dropout(p=.5),
-  nn.Conv2d(64, 1, 1, bias=False),
-  nn.MaxPool2d((6, 1))
-  )
-)
