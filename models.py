@@ -37,8 +37,7 @@ get = {
             nn.BatchNorm2d(64),
             nn.LeakyReLU(0.01),
             nn.Dropout(p=.5),
-            nn.Conv2d(64, 1, 1, bias=False),
-            nn.MaxPool2d((6, 1))
+            nn.Conv2d(64, 1, 1, bias=False)
         )
     ),
     'delphinid' : nn.Sequential(
