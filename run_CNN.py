@@ -20,19 +20,24 @@ parser.add_argument('-no-maxPool', dest='maxPool', action='store_false')
 parser.set_defaults(maxPool=True)
 args = parser.parse_args()
 
-
 meta_model = {
     'delphinid': {
-        'stdc':'sparrow_dolphin_train8_pcen_conv2d_noaugm_bs32_lr.005_.stdc',
+        'stdc': 'sparrow_dolphin_train8_pcen_conv2d_noaugm_bs32_lr.005_.stdc',
         'fs': 96000
     },
     'megaptera': {
-        'stdc':'sparrow_whales_train8C_2610_frontend2_conv1d_noaugm_bs32_lr.05_.stdc',
-        'fs':11025
+        'stdc': 'sparrow_whales_train8C_2610_frontend2_conv1d_noaugm_bs32_lr.05_.stdc',
+        'fs': 11025
     },
     'orcinus': '',
-    'physeter': '',
-    'balaenoptera': ''
+    'physeter': {
+        'stdc': 'stft_depthwise_ovs_128_k7_r1.stdc',
+        'fs': 50000
+    },
+    'balaenoptera': {
+        'stdc': 'dw_m128_brown_200Hzhps32_prod_w4_128_k5_r_sch97.stdc',
+        'fs': 200
+    }
 }[args.specie]
 
 
@@ -41,33 +46,6 @@ def collate_fn(batch):
     return data.dataloader.default_collate(batch) if len(batch) > 0 else None
 
 norm = lambda arr: (arr - np.mean(arr) ) / np.std(arr)
-
-
-def run(folder, stdcfile, model, fs, lensample, batch_size, maxPool):
-    model.load_state_dict(torch.load(stdcfile))
-    model.eval()
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model.to(device)
-
-    out = pd.DataFrame(columns=['fn', 'offset', 'pred'])
-    fns, offsets, preds = [], [], []
-    loader = data.DataLoader(Dataset(folder, fs, lensample), batch_size=batch_size, collate_fn=collate_fn, num_workers=8, prefetch_factor=4)
-    if len(loader) == 0:
-        print('Unable to open any audio file in the given folder')
-    with torch.no_grad():
-        for x, meta in tqdm(loader):
-            x = x.to(device)
-            pred = model(x).cpu().detach().numpy()
-            if maxPool:
-                pred = pred.max(axis=-1).reshape(len(x))
-            else:
-                pred = pred.reshape(len(x), -1)
-            fns.extend(meta['fn'])
-            offsets.extend(meta['offset'].numpy())
-            preds.extend(pred)
-    out.fn, out.offset, out.pred = fns, offsets, preds
-    return out
-
 
 class Dataset(data.Dataset):
     def __init__(self, folder, fs, lensample):
@@ -78,10 +56,9 @@ class Dataset(data.Dataset):
             try:
                 duration = sf.info(folder+fn).duration
             except:
-                print(f'Skipping {fn} (unable to read)')
+                print(f'Skipping {fn} (unable to read as audio)')
                 continue
-            for offset in np.arange(0, duration+.01-lensample, lensample):
-                self.samples.append({'fn':fn, 'offset':offset})
+            self.samples.extend([{'fn':fn, 'offset':offset} for offset in np.arange(0, duration+.01-lensample, lensample)])
         self.fs, self.folder, self.lensample = fs, folder, lensample
 
     def __len__(self):
@@ -101,13 +78,33 @@ class Dataset(data.Dataset):
         sig = norm(sig)
         return torch.tensor(sig).float(), sample
 
-preds = run(args.audio_folder,
-            meta_model['stdc'],
-            models.get[args.specie],
-            meta_model['fs'],
-            args.lensample,
-            args.batch_size,
-            args.maxPool
-        )
 
-preds.to_pickle(args.pred_fn)
+# prepare model
+model = models.get[args.specie]
+model.load_state_dict(torch.load(f"weights/{meta_model['stdc']}"))
+model.eval()
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model.to(device)
+
+# prepare data loader and output storage for predictions
+loader = data.DataLoader(Dataset(args.audio_folder, meta_model['fs'], args.lensample), batch_size=args.batch_size, collate_fn=collate_fn, num_workers=8, prefetch_factor=4)
+out = pd.DataFrame(columns=['filename', 'offset', 'prediction'])
+fns, offsets, preds = [], [], []
+if len(loader) == 0:
+    print('Unable to open any audio file in the given folder')
+    exit()
+
+with torch.no_grad():
+    for x, meta in tqdm(loader):
+        x = x.to(device)
+        pred = model(x).cpu().detach().numpy()
+        if args.maxPool:
+            pred = pred.max(axis=-1).reshape(len(x))
+        else:
+            pred = pred.reshape(len(x), -1)
+        preds.extend(pred)
+        fns.extend(meta['fn'])
+        offsets.extend(meta['offset'].numpy())
+
+out.filename, out.offset, out.prediction = fns, offsets, preds
+out.to_pickle(args.pred_fn)

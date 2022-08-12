@@ -9,6 +9,6 @@ For example :
 `python run_CNN_HB.py file1.wav file2.wav -outfn predictions.pkl`
 
 This script relies on torch, pandas, numpy, scipy, and tqdm to run. Install dependencies with pip or conda.
-If a GPU and cuda are available on the current machine, process will run on GPU for faster computation.
+If a GPU and cuda are available on the current machine, processes will run on GPU for faster computation.
 
 paul.best@univ-tln.fr for more information
