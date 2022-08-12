@@ -1,4 +1,4 @@
-# CETA CNNs
+# Ceta CNNs
 
 ## Project description
 This project allows to detect the vocalizations from several cetacean species in acoustic signals using Convolutionnal Neural Networks (CNNs).
