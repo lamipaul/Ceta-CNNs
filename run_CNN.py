@@ -8,12 +8,12 @@ import pandas as pd
 from tqdm import tqdm
 import argparse
 
-parser = argparse.ArgumentParser(description="Run this script to use a CNN for inference on a folder of audio files.")
+parser = argparse.ArgumentParser(description="Run this script to use a CNN for the detection of cetacean vocalizations on a folder of audio files.")
 parser.add_argument('audio_folder', type=str, help='Path of the folder with audio files to process')
 parser.add_argument('specie', type=str, help='Target specie to detect', choices=['megaptera', 'delphinid', 'orcinus', 'physeter', 'balaenoptera'])
-parser.add_argument('-lensample', type=float, help='Length of the signal excerpts to process (sec)', default=5),
-parser.add_argument('-batch_size', type=int, help='Amount of samples to process at a time', default=32),
-parser.add_argument('-maxPool', help='Wether to keep only the maximal prediction of a sample or the full sequence', action='store_true'),
+parser.add_argument('-lensample', type=float, help='Length of the signal for each sample (in seconds)', default=5),
+parser.add_argument('-batch_size', type=int, help='Amount of samples to process at a time (usefull for parallel computation using a GPU)', default=32),
+parser.add_argument('-maxPool', help='Wether to keep only the maximal prediction of each sample or the full sequence', action='store_true'),
 parser.add_argument('-no-maxPool', dest='maxPool', action='store_false')
 parser.set_defaults(maxPool=True)
 args = parser.parse_args()
