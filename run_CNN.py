@@ -50,7 +50,7 @@ class Dataset(torch.utils.data.Dataset):
             return None
         sig = sig[:, args.channel]
         if fs != models.get[args.specie]['fs']:
-            sig = signal.resample(sig, args.lensample * models.get[args.specie]['fs'])
+            sig = signal.resample(sig, int(args.lensample * models.get[args.specie]['fs']))
         sig = norm(sig)
         return torch.tensor(sig).float(), sample
 
