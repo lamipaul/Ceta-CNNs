@@ -184,5 +184,47 @@ get = {
                 nn.AdaptiveMaxPool2d(output_size=(1, 1))
             )
         )
+    },
+    'globicephala': {
+        'weights': 'sparrow_dolphin_train8_pcen_conv2d_noaugm_bs32_lr_GLOBI.005_TRAIN_.stdc',
+        'fs': 48000,
+        'archi': nn.Sequential(
+            nn.Sequential(
+                STFT(2048, 512),
+                MelFilter(48000, 2048, 128, 2000, 6000),
+                PCENLayer(128)
+            ),
+            nn.Sequential(
+                nn.Conv2d(1, 32, 3, bias=False),
+                nn.BatchNorm2d(32),
+                nn.LeakyReLU(0.01),
+                nn.Conv2d(32, 32, 3,bias=False),
+                nn.BatchNorm2d(32),
+                nn.MaxPool2d(3),
+                nn.LeakyReLU(0.01),
+                nn.Conv2d(32, 32, 3, bias=False),
+                nn.BatchNorm2d(32),
+                nn.LeakyReLU(0.01),
+                nn.Conv2d(32, 32, 3, bias=False),
+                nn.BatchNorm2d(32),
+                nn.LeakyReLU(0.01),
+                nn.Conv2d(32, 64, (19, 3), bias=False),
+                nn.BatchNorm2d(64),
+                nn.MaxPool2d(3),
+                nn.LeakyReLU(0.01),
+                nn.Dropout(p=.5),
+                nn.Conv2d(64, 256, (1, 6), bias=False),  # for 80 bands
+                nn.BatchNorm2d(256),
+                nn.LeakyReLU(0.01),
+                nn.Dropout(p=.5),
+                nn.Conv2d(256, 64, 1, bias=False),
+                nn.BatchNorm2d(64),
+                nn.LeakyReLU(0.01),
+                nn.Dropout(p=.5),
+                nn.Conv2d(64, 1, 1, bias=False),
+                nn.MaxPool2d((6, 1)),
+                nn.AdaptiveMaxPool2d(output_size=(1, 1))
+            )
+        )
     }
 }
