@@ -89,7 +89,7 @@ with torch.no_grad():
 out.filename, out.offset, out.prediction = fns, offsets, preds
 pred_fn = list(filter(lambda e: e!='', args.audio_folder.split('/')))[-1] + ('.csv' if args.maxPool else '.pkl') if args.output_filename == '' else args.output_filename
 print(f'Saving results into {pred_fn}')
-if args.maxPool:
+if pred_fn.endswith('csv'):
     out.to_csv(pred_fn, index=False)
 else:
     out.to_pickle(pred_fn)
