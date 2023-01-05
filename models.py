@@ -181,7 +181,6 @@ get = {
                 nn.Dropout2d(p=.5),
                 nn.LeakyReLU(0.01),
                 nn.Conv2d(64, 1, 1, bias=False),
-                nn.AdaptiveMaxPool2d(output_size=(1, 1))
             )
         )
     },
@@ -223,7 +222,6 @@ get = {
                 nn.Dropout(p=.5),
                 nn.Conv2d(64, 1, 1, bias=False),
                 nn.MaxPool2d((6, 1)),
-                nn.AdaptiveMaxPool2d(output_size=(1, 1))
             )
         )
     }
