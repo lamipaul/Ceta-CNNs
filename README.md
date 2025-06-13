@@ -1,4 +1,5 @@
 # Ceta CNNs
+*Cetacean vocalization detection using pre-trained convolutionnal neural networks*
 
 ## Project description
 This project allows to detect the vocalizations from several cetacean species in acoustic signals using Convolutionnal Neural Networks (CNNs).
@@ -23,7 +24,22 @@ The output file with predictions can be read in python using pandas : `pandas.re
 This script relies on `torch`, `pandas`, `numpy`, `scipy`, `soundfile` and `tqdm` to run. You can install them using pip or conda.
 If a GPU and cuda are available on the current machine, processes will run on GPU for faster computation.
 
+## How to cite
+APA:
+```
+Best, P. (2022). Ceta-CNNs: Cetacean vocalization detection using pre-trained convolutionnal neural networks. GitHub, https://github.com/lamipaul/Ceta-CNNs.
+```
+Bibtex:
+```
+@misc{best_2022,
+    author       = {Paul Best},
+    title        = {{Ceta-CNNs: Cetacean vocalization detection using pre-trained convolutionnal neural networks}},
+    year         = 2022,
+    version      = {1.0},
+    url          = {https://github.com/lamipaul/Ceta-CNNs}
+    }
+```
 
 ## Contact
-You can reach me at paul.best@univ-tln.fr for more information
+You can reach me at paul.best@univ-amu.fr for more information
 
